@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ilustrasi Jembatan (by : tianreformis)</title>
+<title>Ilustrasi Jembatan</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
   :root{
@@ -33,7 +33,7 @@
 </head>
 <body>
 <div id="app"></div>
-<div id="top"><h1>ILUSTRASI JEMBATAN (by : @tianreformis)</h1></div>
+<div id="top"><h1>ILUSTRASI JEMBATAN</h1></div>
 <div id="hud">
   <div id="card">
     <p id="title">-</p>
@@ -70,9 +70,10 @@ function textSprite(text, opts={}){
   ctx.fillStyle=color; ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=8;
   ctx.fillText(text, w/2, h/2);
   const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({map:tex, transparent:true});
+  const mat = new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false, depthWrite:false});
   const spr = new THREE.Sprite(mat);
   spr.scale.set(w/40, h/40, 1);
+  spr.renderOrder = 999;
   return spr;
 }
 
