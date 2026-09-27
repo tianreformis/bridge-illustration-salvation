@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Jembatan Keselamatan — 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{
+  --navy:#1E2761; --navy-d:#141B47cc; --ice:#CADCFC; --gold:#D4AF37; --crimson:#8C1D18;
+  --text:#ffffff; --muted:#c7cde3;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;}
+html,body{margin:0; height:100%; overflow:hidden; background:#0d1220; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--text);}
+#canvas-wrap{position:fixed; inset:0;}
+canvas{display:block; touch-action:none;}
+
+.hud{position:fixed; left:0; right:0; pointer-events:none; z-index:5;}
+.top{top:env(safe-area-inset-top,0px); padding:1.1rem 1.3rem; display:flex; justify-content:space-between; align-items:flex-start;}
+.brand .kicker{letter-spacing:3px; font-size:.68rem; font-weight:700; color:var(--gold);}
+.brand h1{margin:.15rem 0 0; font-size:clamp(1.1rem,3vw,1.5rem);}
+.hint{font-size:.72rem; color:var(--muted); background:#141B4799; padding:.4rem .7rem; border-radius:999px; pointer-events:auto; backdrop-filter:blur(6px);}
+
+.panel{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(1rem + env(safe-area-inset-bottom,0px));
+  width:min(560px,92vw); background:#141B47cc; backdrop-filter:blur(10px); border:1px solid #ffffff22;
+  border-radius:18px; padding:1.1rem 1.3rem; pointer-events:auto; z-index:6;}
+.panel .kicker{letter-spacing:2px; font-size:.68rem; font-weight:700; color:var(--gold);}
+.panel h2{margin:.25rem 0 .5rem; font-size:1.05rem;}
+.panel p{margin:.3rem 0; font-size:.85rem; line-height:1.5; color:var(--muted);}
+.panel p b{color:#fff;}
+.navrow{display:flex; align-items:center; justify-content:space-between; margin-top:.7rem;}
+.dots{display:flex; gap:6px;}
+.dots span{width:7px; height:7px; border-radius:50%; background:#ffffff33;}
+.dots span.on{background:var(--gold);}
+.btn{background:var(--gold); color:#141B47; border:none; border-radius:999px; padding:.45rem 1rem; font-weight:700; font-size:.82rem; cursor:pointer;}
+.btn:disabled{opacity:.35; cursor:default;}
+.btn.ghost{background:transparent; color:var(--gold); border:1px solid var(--gold);}
+#loading{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#0d1220; z-index:10; font-size:.9rem; color:var(--muted);}
+</style>
+</head>
+<body>
+<div id="loading">Memuat ilustrasi 3D…</div>
+<div id="canvas-wrap"></div>
+
+<div class="hud top">
+  <div class="brand">
+    <div class="kicker">ILUSTRASI INJIL · 3D</div>
+    <h1>Jembatan Keselamatan</h1>
+  </div>
+  <div class="hint">🖱️ Seret untuk memutar</div>
+</div>
+
+<div class="panel">
+  <div class="kicker" id="p-kicker">BAGIAN 1</div>
+  <h2 id="p-title">Manusia diciptakan untuk mengenal Allah</h2>
+  <div id="p-body"></div>
+  <div class="navrow">
+    <button class="btn ghost" id="prev">‹ Sebelumnya</button>
+    <div class="dots" id="dots"></div>
+    <button class="btn" id="next">Berikutnya ›</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+try{
+
+var stages = [
+ { k:"BAGIAN 1", t:"Manusia diciptakan untuk mengenal Allah", b:[
+   "Allah menciptakan manusia untuk hidup dalam hubungan dengan-Nya.",
+   "Allah Maha Kudus — sempurna, tanpa cela, dan terpisah dari segala yang berdosa.",
+   "<i>Namun ada sesuatu yang memisahkan manusia dari Allah.</i>"]},
+ { k:"BAGIAN 2", t:"Dosa memisahkan manusia dari Allah", b:[
+   "<b>1. Semua orang berdosa</b> — Roma 3:23 · Yesaya 64:6",
+   "<b>2. Upah dosa adalah maut</b> — Roma 6:23",
+   "<b>3. Hukuman itu pasti</b> — Ibrani 9:27 · Yesaya 59:1-2"]},
+ { k:"BAGIAN 3", t:"Usaha manusia tak dapat menjembataninya", b:[
+   "Banyak orang mencoba menjangkau Allah lewat perbuatan baik, agama, atau hidup saleh.",
+   "Tetapi jurang dosa terlalu dalam untuk dijembatani oleh usaha manusia sendiri."]},
+ { k:"BAGIAN 4", t:"Kristus adalah jembatan menuju Allah", b:[
+   "<i>\"Kristus telah mati sekali untuk segala dosa kita... supaya Ia membawa kita kepada Allah.\"</i> <b>1 Petrus 3:18</b>",
+   "<i>\"Karena begitu besar kasih Allah akan dunia ini...\"</i> <b>Yohanes 3:16</b>"]},
+ { k:"BAGIAN 5", t:"Syarat dan janji keselamatan", b:[
+   "<b>Syarat:</b> 1. Mendengar &nbsp;2. Percaya — Yohanes 5:24",
+   "<b>Janji:</b> hidup kekal · tidak turut dihukum · pindah dari maut kepada hidup"]},
+ { k:"BAGIAN 6", t:"Di manakah Anda sekarang?", b:[
+   "Setiap orang berdiri di salah satu sisi jurang ini —",
+   "di sisi manusia, terpisah oleh dosa, atau di sisi Allah, melalui Kristus sang jembatan."]},
+];
+var stage = 1;
+var dotsEl = document.getElementById('dots');
+stages.forEach(function(_,i){ var d=document.createElement('span'); if(i===0) d.className='on'; dotsEl.appendChild(d); });
+
+function renderPanel(){
+  var s = stages[stage-1];
+  document.getElementById('p-kicker').textContent = s.k;
+  document.getElementById('p-title').textContent = s.t;
+  document.getElementById('p-body').innerHTML = s.b.map(function(x){return '<p>'+x+'</p>';}).join('');
+  Array.from(dotsEl.children).forEach(function(d,i){ d.className = (i===stage-1)?'on':''; });
+  document.getElementById('prev').disabled = stage===1;
+  document.getElementById('next').disabled = stage===stages.length;
+  applyStage(stage);
+}
+document.getElementById('prev').onclick = function(){ if(stage>1){ stage--; renderPanel(); } };
+document.getElementById('next').onclick = function(){ if(stage<stages.length){ stage++; renderPanel(); } };
+
+// ---------- three.js scene ----------
+var wrap = document.getElementById('canvas-wrap');
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1220);
+scene.fog = new THREE.Fog(0x0d1220, 10, 22);
+
+var camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(0, 2.4, 9.5);
+
+var renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth, innerHeight);
+wrap.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0x8899cc, 0.7));
+var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(4,8,5);
+scene.add(dirLight);
+
+var world = new THREE.Group();
+scene.add(world);
+
+function makeLabel(text,color,size){
+  size = size || 64;
+  var c = document.createElement('canvas');
+  var ctx = c.getContext('2d');
+  ctx.font = 'bold '+size+'px Arial';
+  var w = Math.ceil(ctx.measureText(text).width) + 40;
+  c.width = w; c.height = size+30;
+  ctx = c.getContext('2d');
+  ctx.font = 'bold '+size+'px Arial';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, c.width/2, c.height/2);
+  var tex = new THREE.CanvasTexture(c);
+  var mat = new THREE.SpriteMaterial({ map:tex, transparent:true, depthWrite:false });
+  var spr = new THREE.Sprite(mat);
+  var scale = 0.011;
+  spr.scale.set(c.width*scale, c.height*scale, 1);
+  return spr;
+}
+
+// geometry constants
+var cliffW=3, cliffD=2.1, cliffH=1.6, gapW=2.1;
+var leftX = -(cliffW/2+gapW/2), rightX = (cliffW/2+gapW/2);
+
+// left cliff (earth)
+var cliffMat = new THREE.MeshStandardMaterial({ color:0x6D5D4B, roughness:0.95 });
+var leftCliff = new THREE.Mesh(new THREE.BoxGeometry(cliffW,cliffH,cliffD), cliffMat);
+leftCliff.position.set(leftX, -cliffH/2, 0);
+world.add(leftCliff);
+
+// right cliff (holy ground)
+var iceMat = new THREE.MeshStandardMaterial({ color:0xCADCFC, roughness:0.6 });
+var rightCliff = new THREE.Mesh(new THREE.BoxGeometry(cliffW,cliffH,cliffD), iceMat);
+rightCliff.position.set(rightX, -cliffH/2, 0);
+world.add(rightCliff);
+
+// chasm
+var chasmMat = new THREE.MeshStandardMaterial({ color:0x8C1D18, roughness:0.9 });
+var chasm = new THREE.Mesh(new THREE.BoxGeometry(gapW,2.6,cliffD), chasmMat);
+chasm.position.set(0, -1.3, 0);
+world.add(chasm);
+
+// sin layer group (DOSA label + neraka + fire glow)
+var sinGroup = new THREE.Group();
+var nerakaMat = new THREE.MeshStandardMaterial({ color:0x3D0C09, emissive:0x8C1D18, emissiveIntensity:0.6, roughness:0.8 });
+var neraka = new THREE.Mesh(new THREE.BoxGeometry(gapW*0.92,0.9,cliffD*0.92), nerakaMat);
+neraka.position.set(0,-2.05,0);
+sinGroup.add(neraka);
+var nerakaGlow = new THREE.PointLight(0xff4433, 1.2, 4);
+nerakaGlow.position.set(0,-1.8,0);
+sinGroup.add(nerakaGlow);
+var dosaLabel = makeLabel('DOSA','#ffffff',70);
+dosaLabel.position.set(0,-0.55,1.15);
+sinGroup.add(dosaLabel);
+var nerakaLabel = makeLabel('NERAKA','#ffd9d6',52);
+nerakaLabel.position.set(0,-1.85,1.15);
+sinGroup.add(nerakaLabel);
+world.add(sinGroup);
+
+// person (MANUSIA)
+var personGroup = new THREE.Group();
+var navyMat = new THREE.MeshStandardMaterial({ color:0x1E2761, roughness:0.6 });
+var body = new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.22,0.6,16), navyMat);
+body.position.set(0,0.3,0);
+var head = new THREE.Mesh(new THREE.SphereGeometry(0.17,16,16), navyMat);
+head.position.set(0,0.75,0);
+personGroup.add(body,head);
+personGroup.position.set(leftX,0,0.5);
+world.add(personGroup);
+var manusiaLabel = makeLabel('MANUSIA','#1E2761',48);
+manusiaLabel.position.set(leftX,1.35,0.5);
+world.add(manusiaLabel);
+
+// sun (ALLAH)
+var sunGroup = new THREE.Group();
+var goldMat = new THREE.MeshStandardMaterial({ color:0xD4AF37, emissive:0xD4AF37, emissiveIntensity:0.5, metalness:0.4, roughness:0.3 });
+var sunMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5,1), goldMat);
+sunGroup.add(sunMesh);
+var sunLight = new THREE.PointLight(0xffe9a8, 1.4, 8);
+sunGroup.add(sunLight);
+for(var i=0;i<8;i++){
+  var ray = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), goldMat);
+  var ang = (i/8)*Math.PI*2;
+  ray.position.set(Math.cos(ang)*0.85, Math.sin(ang)*0.85, 0);
+  sunGroup.add(ray);
+}
+sunGroup.position.set(rightX,1.1,0);
+world.add(sunGroup);
+var allahLabel = makeLabel('ALLAH','#1E2761',48);
+allahLabel.position.set(rightX,1.95,0);
+world.add(allahLabel);
+var kudusLabel = makeLabel('Maha Kudus','#1E2761',34);
+kudusLabel.position.set(rightX,0.35,0.9);
+world.add(kudusLabel);
+
+// works-attempt layer (stage 3 only)
+var worksGroup = new THREE.Group();
+var xMat = new THREE.MeshStandardMaterial({ color:0xB0271B });
+var bar1 = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.09,0.09), xMat);
+bar1.rotation.z = Math.PI/4; bar1.position.set(-0.3,0.15,0.6);
+var bar2 = bar1.clone(); bar2.rotation.z = -Math.PI/4;
+worksGroup.add(bar1,bar2);
+var worksLabel = makeLabel('usaha manusia','#6D5D4B',34);
+worksLabel.position.set(leftX+0.9,0.6,0.9);
+worksGroup.add(worksLabel);
+world.add(worksGroup);
+
+// cross bridge layer (stage >=4)
+var crossGroup = new THREE.Group();
+var deck = new THREE.Mesh(new THREE.BoxGeometry(gapW+0.3,0.15,0.9), goldMat);
+deck.position.set(0,0.075,0);
+var vBeam = new THREE.Mesh(new THREE.BoxGeometry(0.22,1.8,0.22), goldMat);
+vBeam.position.set(0,1.05,0);
+var hBeam = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.22,0.22), goldMat);
+hBeam.position.set(0,1.4,0);
+crossGroup.add(deck,vBeam,hBeam);
+var crossLabel = makeLabel('1 Petrus 3:18','#D4AF37',30);
+crossLabel.position.set(0,2.15,0);
+crossGroup.add(crossLabel);
+world.add(crossGroup);
+
+// steps layer (stage >=5)
+var stepsGroup = new THREE.Group();
+[[-0.55,'1. Mendengar'],[0.55,'2. Percaya']].forEach(function(pair){
+  var dot = new THREE.Mesh(new THREE.SphereGeometry(0.08,12,12), navyMat);
+  dot.position.set(pair[0],0.22,0.3);
+  stepsGroup.add(dot);
+  var lbl = makeLabel(pair[1],'#1E2761',28);
+  lbl.position.set(pair[0],0.55,0.3);
+  stepsGroup.add(lbl);
+});
+world.add(stepsGroup);
+
+// question mark (stage 6 only)
+var qGroup = new THREE.Group();
+var qDisc = new THREE.Mesh(new THREE.CircleGeometry(0.32,24), new THREE.MeshStandardMaterial({color:0xffffff}));
+qDisc.position.set(0,1.9,0.35);
+var qLabel = makeLabel('?','#8C1D18',80);
+qLabel.position.set(0,1.9,0.4);
+qGroup.add(qDisc,qLabel);
+world.add(qGroup);
+
+function applyStage(n){
+  sinGroup.visible = n>=2;
+  worksGroup.visible = n===3;
+  crossGroup.visible = n>=4;
+  stepsGroup.visible = n>=5;
+  qGroup.visible = n===6;
+}
+applyStage(stage);
+
+// ---------- interaction: drag to rotate, auto-rotate when idle ----------
+var dragging=false, lastX=0, lastY=0, rotY=0, rotX=-0.08, idleT=0;
+function onDown(x,y){ dragging=true; lastX=x; lastY=y; idleT=0; }
+function onMove(x,y){
+  if(!dragging) return;
+  rotY += (x-lastX)*0.006;
+  rotX += (y-lastY)*0.004;
+  rotX = Math.max(-0.5, Math.min(0.5, rotX));
+  lastX=x; lastY=y;
+}
+function onUp(){ dragging=false; }
+renderer.domElement.addEventListener('mousedown', function(e){ onDown(e.clientX,e.clientY); });
+window.addEventListener('mousemove', function(e){ onMove(e.clientX,e.clientY); });
+window.addEventListener('mouseup', onUp);
+renderer.domElement.addEventListener('touchstart', function(e){ var t=e.touches[0]; onDown(t.clientX,t.clientY); }, {passive:true});
+renderer.domElement.addEventListener('touchmove', function(e){ var t=e.touches[0]; onMove(t.clientX,t.clientY); }, {passive:true});
+renderer.domElement.addEventListener('touchend', onUp);
+
+window.addEventListener('resize', function(){
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+var clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  var dt = clock.getDelta();
+  idleT += dt;
+  if(!dragging && idleT>1.2){ rotY += dt*0.06; }
+  world.rotation.y += (rotY-world.rotation.y)*0.08;
+  world.rotation.x += (rotX-world.rotation.x)*0.08;
+  sunGroup.rotation.y += dt*0.4;
+  sunMesh.rotation.x += dt*0.3;
+  [dosaLabel,nerakaLabel,manusiaLabel,allahLabel,kudusLabel,worksLabel,crossLabel].forEach(function(l){ l.lookAt(camera.position); });
+  camera.lookAt(0,-0.2,0);
+  renderer.render(scene, camera);
+}
+document.getElementById('loading').style.display='none';
+renderPanel();
+animate();
+
+}catch(err){
+  document.getElementById('loading').textContent = 'Terjadi kendala memuat ilustrasi 3D.';
+  document.getElementById('loading').style.display='flex';
+  console.error(err);
+}
+</script>
+</body>
+</html>
